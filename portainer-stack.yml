@@ -15,7 +15,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=homelab_network"
-      - "traefik.http.routers.mlbapi.rule=Host(`mlb.api.nawx.app`)"
+      - "traefik.http.routers.mlbapi.rule=Host(`mlbapi.nawx.app`)"
       - "traefik.http.routers.mlbapi.entrypoints=websecure"
       - "traefik.http.routers.mlbapi.tls=true"
       - "traefik.http.routers.mlbapi.tls.certresolver=letsencrypt"

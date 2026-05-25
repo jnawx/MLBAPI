@@ -77,7 +77,7 @@ Use `portainer-stack.yml` in Portainer. The stack follows the same homelab patte
 
 - one `mlbapi` app container
 - attached to the existing external `homelab_network`
-- routed by Traefik at `mlb.api.nawx.app`
+- routed by Traefik at `mlbapi.nawx.app`
 - connected to the existing shared PostgreSQL container named `postgresql`
 
 It does not create or run its own Postgres container.
