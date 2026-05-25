@@ -73,57 +73,61 @@ If the GitHub repo is private, make sure the package visibility and Portainer re
 
 ## Portainer Deployment
 
-Use `portainer-stack.yml` for a normal Portainer stack that publishes the API on a host port, then point your reverse proxy at it.
+Use `portainer-stack.yml` in Portainer. The stack follows the same homelab pattern as the investment app:
+
+- one `mlbapi` app container
+- attached to the existing external `homelab_network`
+- routed by Traefik at `mlb.api.nawx.app`
+- connected to the existing shared PostgreSQL container named `postgresql`
+
+It does not create or run its own Postgres container.
 
 Required Portainer environment variables:
 
 ```env
 POSTGRES_PASSWORD=use-a-real-password
-MLBAPI_IMAGE=ghcr.io/<owner>/<repo>:latest
 ```
 
 Recommended values:
 
 ```env
+MLBAPI_IMAGE=ghcr.io/jnawx/mlbapi:latest
+POSTGRES_HOST=postgresql
+POSTGRES_PORT=5432
 POSTGRES_DB=mlbapi
 POSTGRES_USER=mlbapi
-MLBAPI_PORT=8000
 TZ=America/Phoenix
 ```
 
-Then route:
+The `POSTGRES_PASSWORD` value is the password for the `mlbapi` database role, not the admin `gitlab` role from the shared Postgres stack.
 
-```text
-https://mlb.api.nawx.app -> http://<docker-host>:8000
+The existing Postgres service should look roughly like this from the app's point of view:
+
+```yaml
+services:
+  postgresql:
+    container_name: postgresql
+    hostname: postgresql
+    networks:
+      - homelab_network
 ```
 
-## Portainer With Traefik
-
-If your homelab uses Traefik, deploy `portainer-stack.traefik.yml` instead.
-
-Required:
-
-```env
-POSTGRES_PASSWORD=use-a-real-password
-MLBAPI_IMAGE=ghcr.io/<owner>/<repo>:latest
-```
-
-Common Traefik values:
-
-```env
-MLBAPI_HOST=mlb.api.nawx.app
-TRAEFIK_NETWORK=proxy
-TRAEFIK_ENTRYPOINT=websecure
-TRAEFIK_CERT_RESOLVER=letsencrypt
-```
-
-The Traefik network must already exist, for example:
+If the `mlbapi` database/user do not already exist on that shared Postgres instance, create them once with the admin role:
 
 ```bash
-docker network create proxy
+docker exec -it postgresql psql -U gitlab -d gitlabhq_production
 ```
+
+Then run:
+
+```sql
+CREATE USER mlbapi WITH PASSWORD 'use-a-real-password';
+CREATE DATABASE mlbapi OWNER mlbapi;
+GRANT ALL PRIVILEGES ON DATABASE mlbapi TO mlbapi;
+```
+
+The app container will create the MLB tables on startup when `RUN_DB_MIGRATIONS=true`.
 
 ## Local Build Stack
 
 `portainer-stack.local-build.yml` is included for standalone Docker Compose/Portainer setups that build from the Git repo directly instead of pulling from GHCR.
-

@@ -1,40 +1,32 @@
 services:
-  db:
-    image: postgres:16-alpine
+  mlbapi:
+    image: ${MLBAPI_IMAGE:-ghcr.io/jnawx/mlbapi:latest}
+    container_name: mlbapi
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mlbapi}
-      POSTGRES_USER: ${POSTGRES_USER:-mlbapi}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Portainer}
-      TZ: ${TZ:-America/Phoenix}
-    volumes:
-      - mlbapi_postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mlbapi} -d ${POSTGRES_DB:-mlbapi}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  api:
-    image: ${MLBAPI_IMAGE:?Set MLBAPI_IMAGE to ghcr.io/owner/repo:latest}
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mlbapi}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Portainer}@db:5432/${POSTGRES_DB:-mlbapi}
-      DATABASE_URL_SYNC: postgresql+psycopg2://${POSTGRES_USER:-mlbapi}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Portainer}@db:5432/${POSTGRES_DB:-mlbapi}
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-mlbapi}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Portainer}@${POSTGRES_HOST:-postgresql}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mlbapi}"
+      DATABASE_URL_SYNC: "postgresql+psycopg2://${POSTGRES_USER:-mlbapi}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Portainer}@${POSTGRES_HOST:-postgresql}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mlbapi}"
       MLB_API_BASE_URL: ${MLB_API_BASE_URL:-https://statsapi.mlb.com}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
       DB_WAIT_SECONDS: ${DB_WAIT_SECONDS:-90}
       TZ: ${TZ:-America/Phoenix}
-    ports:
-      - "${MLBAPI_PORT:-8000}:8000"
+    networks:
+      - homelab_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=homelab_network"
+      - "traefik.http.routers.mlbapi.rule=Host(`mlb.api.nawx.app`)"
+      - "traefik.http.routers.mlbapi.entrypoints=websecure"
+      - "traefik.http.routers.mlbapi.tls=true"
+      - "traefik.http.routers.mlbapi.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mlbapi.loadbalancer.server.port=8000"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()\""]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 30s
 
-volumes:
-  mlbapi_postgres:
+networks:
+  homelab_network:
+    external: true
