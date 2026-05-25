@@ -9,6 +9,7 @@ A personal MLB statistics database and FastAPI service for custom at-bat-level s
 - Exposes reference endpoints for players, teams, and games.
 - Exposes stats endpoints for batting, pitching, and stolen-base queries.
 - Serves a small browser UI at `/`.
+- Runs a daily sync worker in Portainer to ingest newly completed games.
 
 ## API
 
@@ -60,6 +61,10 @@ python -m scripts.run_sync
 python -m scripts.run_sync --date 2026-05-24
 ```
 
+In Portainer, the `mlbapi-sync` service runs this automatically every day.
+By default it syncs yesterday's completed games at `06:00` in `America/Phoenix`
+and also runs once when the container starts.
+
 ## GitHub Actions
 
 `.github/workflows/build.yml` runs tests and builds the Docker image. On pushes to `main`, it also publishes:
@@ -76,6 +81,7 @@ If the GitHub repo is private, make sure the package visibility and Portainer re
 Use `portainer-stack.yml` in Portainer. The stack follows the same homelab pattern as the investment app:
 
 - one `mlbapi` app container
+- one `mlbapi-sync` worker container for daily data updates
 - attached to the existing external `homelab_network`
 - routed by Traefik at `mlbapi.nawx.app`
 - connected to the existing shared PostgreSQL container named `postgresql`
@@ -97,6 +103,9 @@ POSTGRES_PORT=5432
 POSTGRES_DB=mlbapi
 POSTGRES_USER=mlbapi
 TZ=America/Phoenix
+DAILY_SYNC_TIME=06:00
+SYNC_ON_START=true
+SYNC_TARGET_DAYS_AGO=1
 ```
 
 The `POSTGRES_PASSWORD` value is the password for the `mlbapi` database role, not the admin `gitlab` role from the shared Postgres stack.
@@ -127,6 +136,10 @@ GRANT ALL PRIVILEGES ON DATABASE mlbapi TO mlbapi;
 ```
 
 The app container will create the MLB tables on startup when `RUN_DB_MIGRATIONS=true`.
+
+The sync worker uses the same image and database connection. It targets yesterday's
+games by default because MLB games can finish after midnight, and the schedule is
+intended to run after the prior day's games are final.
 
 ## Local Build Stack
 

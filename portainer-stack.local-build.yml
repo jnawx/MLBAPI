@@ -30,6 +30,30 @@ services:
       retries: 3
       start_period: 30s
 
+  mlbapi-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mlbapi:local
+    container_name: mlbapi-sync
+    restart: unless-stopped
+    command: ["python", "-m", "scripts.sync_scheduler"]
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-mlbapi}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Portainer}@${POSTGRES_HOST:-postgresql}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mlbapi}"
+      DATABASE_URL_SYNC: "postgresql+psycopg2://${POSTGRES_USER:-mlbapi}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Portainer}@${POSTGRES_HOST:-postgresql}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mlbapi}"
+      MLB_API_BASE_URL: ${MLB_API_BASE_URL:-https://statsapi.mlb.com}
+      RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      DB_WAIT_SECONDS: ${DB_WAIT_SECONDS:-90}
+      DAILY_SYNC_TIME: ${DAILY_SYNC_TIME:-06:00}
+      SYNC_ON_START: ${SYNC_ON_START:-true}
+      SYNC_TARGET_DAYS_AGO: ${SYNC_TARGET_DAYS_AGO:-1}
+      SYNC_RETRY_SECONDS: ${SYNC_RETRY_SECONDS:-3600}
+      TZ: ${TZ:-America/Phoenix}
+    networks:
+      - homelab_network
+    healthcheck:
+      disable: true
+
 networks:
   homelab_network:
     external: true

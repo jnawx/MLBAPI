@@ -16,3 +16,4 @@ httpx>=0.25.0
 
 # Environment
 python-dotenv>=1.0.0
+tzdata>=2025.2

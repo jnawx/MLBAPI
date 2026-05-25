@@ -12,7 +12,7 @@ import logging
 from datetime import date, timedelta
 from typing import Any, Optional
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -127,6 +127,9 @@ def _insert_at_bats_and_pitches(session: Session, pg: ParsedGame) -> None:
 
 def _insert_steal_attempts(session: Session, pg: ParsedGame) -> None:
     """Insert steal attempts for a game."""
+    session.execute(
+        delete(StealAttempt).where(StealAttempt.game_mlb_id == pg.game_mlb_id)
+    )
     for steal in pg.steal_attempts:
         session.execute(
             pg_insert(StealAttempt.__table__).values(**steal.to_dict())
