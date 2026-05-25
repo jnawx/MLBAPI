@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MLB Stats Explorer</title>
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2a2d3a;
+      --text:      #e0e0e8;
+      --text-dim:  #8888a0;
+      --accent:    #4a90d9;
+      --accent-hover: #5ea4f0;
+      --green:     #4caf50;
+      --red:       #ef5350;
+      --yellow:    #ffc107;
+      --orange:    #ff9800;
+      --radius:    8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    header .logo { font-size: 32px; }
+    header h1 { font-size: 22px; font-weight: 600; }
+    header .subtitle { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+
+    /* ── Tabs ───────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 4px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); background: rgba(74,144,217,0.1); }
+    .tab-btn.active { background: var(--accent); color: #fff; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Cards & Panels ─────────────────────────────────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .panel h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel h2 .icon { font-size: 18px; }
+
+    /* ── Forms ──────────────────────────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-group input,
+    .form-group select {
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border 0.15s;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--accent);
+    }
+    .form-group input::placeholder { color: var(--text-dim); opacity: 0.6; }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: #3a3d4a; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Tags for multi-select display ─────────────────────────────── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(74,144,217,0.15);
+      color: var(--accent);
+      border: 1px solid rgba(74,144,217,0.3);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ── Tables ─────────────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      padding: 10px 12px;
+      text-align: right;
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    thead th:first-child { text-align: left; }
+    thead th:hover { color: var(--accent); }
+    thead th.sorted-asc::after { content: " ▲"; color: var(--accent); }
+    thead th.sorted-desc::after { content: " ▼"; color: var(--accent); }
+
+    tbody td {
+      padding: 8px 12px;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    tbody td:first-child { text-align: left; font-weight: 500; }
+    tbody tr:hover { background: rgba(74,144,217,0.05); }
+
+    /* color coding for stat values */
+    .stat-good { color: var(--green); }
+    .stat-great { color: #66bb6a; font-weight: 600; }
+    .stat-bad { color: var(--red); }
+
+    /* ── Status & Loading ───────────────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .status-bar .count { color: var(--text); font-weight: 600; }
+
+    .loading {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 40px;
+      color: var(--text-dim);
+    }
+    .loading.active { display: flex; }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      display: none;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+    }
+    .empty-state.active { display: block; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    .error-msg {
+      display: none;
+      padding: 12px 16px;
+      background: rgba(239,83,80,0.1);
+      border: 1px solid rgba(239,83,80,0.3);
+      border-radius: var(--radius);
+      color: var(--red);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .error-msg.active { display: block; }
+
+    /* ── Player search autocomplete ─────────────────────────────────── */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0 0 6px 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    .autocomplete-list.active { display: block; }
+    .autocomplete-item {
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .autocomplete-item:hover { background: rgba(74,144,217,0.1); }
+    .autocomplete-item .meta { color: var(--text-dim); font-size: 11px; }
+
+    /* ── Quick stats summary row ─────────────────────────────────────── */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      text-align: center;
+    }
+    .summary-card .value { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .summary-card .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; margin-top: 2px; }
+
+    /* ── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .summary-cards { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">⚾</div>
+    <div>
+      <h1>MLB Stats Explorer</h1>
+      <div class="subtitle">Query batting, pitching & stolen base stats with custom splits</div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="batting">🏏 Batting</button>
+    <button class="tab-btn" data-tab="pitching">💪 Pitching</button>
+    <button class="tab-btn" data-tab="steals">🏃 Steals</button>
+    <button class="tab-btn" data-tab="players">👤 Players</button>
+    <button class="tab-btn" data-tab="teams">🏟️ Teams</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- BATTING TAB                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="tab-content active" id="tab-batting">
+    <div class="panel">
+      <h2><span class="icon">🔍</span> Batting Filters</h2>
+      <div class="form-grid">
+        <div class="form-group autocomplete-wrap">
+          <label>Player Search</label>
+          <input type="text" id="bat-player-search" placeholder="Search by name…" autocomplete="off" />
+          <div class="autocomplete-list" id="bat-player-autocomplete"></div>
+          <input type="hidden" id="bat-player-ids" />
+          <div id="bat-player-chips" style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;"></div>
+        </div>
+        <div class="form-group">
+          <label>Seasons</label>
+          <input type="text" id="bat-seasons" placeholder="e.g. 2023, 2024" />
+        </div>
+        <div class="form-group">
+          <label>Date From</label>
+          <input type="date" id="bat-date-from" />
+        </div>
+        <div class="form-group">
+          <label>Date To</label>
+          <input type="date" id="bat-date-to" />
+        </div>
+        <div class="form-group">
+          <label>Bat Side</label>
+          <select id="bat-bat-side">
+            <option value="">Any</option>
+            <option value="L">Left</option>
+            <option value="R">Right</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>vs Pitch Hand</label>
+          <select id="bat-pitch-hand">
+            <option value="">Any</option>
+            <option value="L">LHP</option>
+            <option value="R">RHP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Home / Away</label>
+          <select id="bat-home-away">
+            <option value="">Any</option>
+            <option value="home">Home</option>
+            <option value="away">Away</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Runners On</label>
+          <select id="bat-runners">
+            <option value="">Any</option>
+            <option value="empty">Bases Empty</option>
+            <option value="on_base">Runners On</option>
+            <option value="risp">RISP</option>
+            <option value="loaded">Bases Loaded</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Outs</label>
+          <select id="bat-outs">
+            <option value="">Any</option>
+            <option value="0">0 Outs</option>
+            <option value="1">1 Out</option>
+            <option value="2">2 Outs</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Lineup Position</label>
+          <input type="text" id="bat-order" placeholder="e.g. 3, 4" />
+        </div>
+        <div class="form-group">
+          <label>Min PA</label>
+          <input type="number" id="bat-min-pa" placeholder="e.g. 100" />
+        </div>
+        <div class="form-group">
+          <label>Group By</label>
+          <select id="bat-group-by">
+            <option value="batter">Player</option>
+            <option value="batter,season">Player + Season</option>
+            <option value="batter,bat_side">Player + Bat Side</option>
+            <option value="batter_team">Team</option>
+            <option value="batter_team,season">Team + Season</option>
+            <option value="season">Season</option>
+            <option value="month">Month</option>
+            <option value="bat_side">Bat Side</option>
+            <option value="pitch_hand">vs Pitch Hand</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="bat-search-btn">🔍 Search</button>
+        <button class="btn btn-secondary" id="bat-clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="bat-error"></div>
+    <div class="loading" id="bat-loading"><div class="spinner"></div> Querying at-bat data…</div>
+
+    <div id="bat-summary" class="summary-cards" style="display:none;"></div>
+
+    <div class="status-bar" id="bat-status" style="display:none;">
+      <span>Results: <span class="count" id="bat-count">0</span></span>
+    </div>
+
+    <div class="table-wrap" id="bat-table-wrap" style="display:none;">
+      <table id="bat-table">
+        <thead><tr id="bat-thead"></tr></thead>
+        <tbody id="bat-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" id="bat-empty">
+      <div class="icon">⚾</div>
+      <p>Set your filters and click Search to explore batting stats</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- PITCHING TAB                                                   -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="tab-content" id="tab-pitching">
+    <div class="panel">
+      <h2><span class="icon">🔍</span> Pitching Filters</h2>
+      <div class="form-grid">
+        <div class="form-group autocomplete-wrap">
+          <label>Pitcher Search</label>
+          <input type="text" id="pit-player-search" placeholder="Search by name…" autocomplete="off" />
+          <div class="autocomplete-list" id="pit-player-autocomplete"></div>
+          <input type="hidden" id="pit-player-ids" />
+          <div id="pit-player-chips" style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;"></div>
+        </div>
+        <div class="form-group">
+          <label>Seasons</label>
+          <input type="text" id="pit-seasons" placeholder="e.g. 2023, 2024" />
+        </div>
+        <div class="form-group">
+          <label>Date From</label>
+          <input type="date" id="pit-date-from" />
+        </div>
+        <div class="form-group">
+          <label>Date To</label>
+          <input type="date" id="pit-date-to" />
+        </div>
+        <div class="form-group">
+          <label>Pitch Hand</label>
+          <select id="pit-pitch-hand">
+            <option value="">Any</option>
+            <option value="L">LHP</option>
+            <option value="R">RHP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>vs Bat Side</label>
+          <select id="pit-vs-bat-side">
+            <option value="">Any</option>
+            <option value="L">LHB</option>
+            <option value="R">RHB</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Home / Away</label>
+          <select id="pit-home-away">
+            <option value="">Any</option>
+            <option value="home">Home</option>
+            <option value="away">Away</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Min PA Faced</label>
+          <input type="number" id="pit-min-pa" placeholder="e.g. 200" />
+        </div>
+        <div class="form-group">
+          <label>Group By</label>
+          <select id="pit-group-by">
+            <option value="pitcher">Pitcher</option>
+            <option value="pitcher,season">Pitcher + Season</option>
+            <option value="pitcher_team">Team</option>
+            <option value="pitcher_team,season">Team + Season</option>
+            <option value="season">Season</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="pit-search-btn">🔍 Search</button>
+        <button class="btn btn-secondary" id="pit-clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="pit-error"></div>
+    <div class="loading" id="pit-loading"><div class="spinner"></div> Querying pitching data…</div>
+
+    <div class="status-bar" id="pit-status" style="display:none;">
+      <span>Results: <span class="count" id="pit-count">0</span></span>
+    </div>
+
+    <div class="table-wrap" id="pit-table-wrap" style="display:none;">
+      <table id="pit-table">
+        <thead><tr id="pit-thead"></tr></thead>
+        <tbody id="pit-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" id="pit-empty">
+      <div class="icon">💪</div>
+      <p>Set your filters and click Search to explore pitching stats</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- STEALS TAB                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="tab-content" id="tab-steals">
+    <div class="panel">
+      <h2><span class="icon">🔍</span> Steal Filters</h2>
+      <div class="form-grid">
+        <div class="form-group autocomplete-wrap">
+          <label>Runner Search</label>
+          <input type="text" id="stl-player-search" placeholder="Search by name…" autocomplete="off" />
+          <div class="autocomplete-list" id="stl-player-autocomplete"></div>
+          <input type="hidden" id="stl-player-ids" />
+          <div id="stl-player-chips" style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;"></div>
+        </div>
+        <div class="form-group">
+          <label>Seasons</label>
+          <input type="text" id="stl-seasons" placeholder="e.g. 2024" />
+        </div>
+        <div class="form-group">
+          <label>Attempted Base</label>
+          <select id="stl-base">
+            <option value="">Any</option>
+            <option value="2B">2nd Base</option>
+            <option value="3B">3rd Base</option>
+            <option value="HP">Home Plate</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Group By</label>
+          <select id="stl-group-by">
+            <option value="runner">Runner</option>
+            <option value="runner,season">Runner + Season</option>
+            <option value="runner,attempted_base">Runner + Base</option>
+            <option value="season">Season</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="stl-search-btn">🔍 Search</button>
+        <button class="btn btn-secondary" id="stl-clear-btn">Clear</button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="stl-error"></div>
+    <div class="loading" id="stl-loading"><div class="spinner"></div> Querying steal data…</div>
+
+    <div class="status-bar" id="stl-status" style="display:none;">
+      <span>Results: <span class="count" id="stl-count">0</span></span>
+    </div>
+
+    <div class="table-wrap" id="stl-table-wrap" style="display:none;">
+      <table id="stl-table">
+        <thead><tr id="stl-thead"></tr></thead>
+        <tbody id="stl-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" id="stl-empty">
+      <div class="icon">🏃</div>
+      <p>Set your filters and click Search to explore stolen base stats</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- PLAYERS TAB                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="tab-content" id="tab-players">
+    <div class="panel">
+      <h2><span class="icon">🔍</span> Player Search</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="pl-search" placeholder="Search by name…" />
+        </div>
+        <div class="form-group">
+          <label>Position</label>
+          <select id="pl-position">
+            <option value="">Any</option>
+            <option>C</option><option>1B</option><option>2B</option><option>3B</option>
+            <option>SS</option><option>LF</option><option>CF</option><option>RF</option>
+            <option>DH</option><option>SP</option><option>RP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Bat Side</label>
+          <select id="pl-bat-side">
+            <option value="">Any</option>
+            <option value="L">Left</option>
+            <option value="R">Right</option>
+            <option value="S">Switch</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Pitch Hand</label>
+          <select id="pl-pitch-hand">
+            <option value="">Any</option>
+            <option value="L">Left</option>
+            <option value="R">Right</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="pl-search-btn">🔍 Search</button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="pl-error"></div>
+    <div class="loading" id="pl-loading"><div class="spinner"></div> Searching players…</div>
+
+    <div class="status-bar" id="pl-status" style="display:none;">
+      <span>Players: <span class="count" id="pl-count">0</span></span>
+    </div>
+
+    <div class="table-wrap" id="pl-table-wrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">Name</th>
+            <th>MLB ID</th>
+            <th>Position</th>
+            <th>Bats</th>
+            <th>Throws</th>
+            <th>Debut</th>
+            <th>Active</th>
+          </tr>
+        </thead>
+        <tbody id="pl-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- TEAMS TAB                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="tab-content" id="tab-teams">
+    <div class="panel">
+      <h2><span class="icon">🏟️</span> Teams</h2>
+    </div>
+
+    <div class="error-msg" id="tm-error"></div>
+    <div class="loading" id="tm-loading"><div class="spinner"></div> Loading teams…</div>
+
+    <div class="table-wrap" id="tm-table-wrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">Team</th>
+            <th>Abbreviation</th>
+            <th>League</th>
+            <th>Division</th>
+            <th>MLB ID</th>
+          </tr>
+        </thead>
+        <tbody id="tm-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// MLB Stats Explorer — Client-side logic
+// ═══════════════════════════════════════════════════════════════════
+
+const API = '/api/v1';
+
+// ── Utility helpers ───────────────────────────────────────────────
+
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+
+function show(el) { el.style.display = ''; }
+function hide(el) { el.style.display = 'none'; }
+function showFlex(el) { el.style.display = 'flex'; }
+
+function setLoading(prefix, on) {
+  const el = $(`#${prefix}-loading`);
+  on ? el.classList.add('active') : el.classList.remove('active');
+}
+function setError(prefix, msg) {
+  const el = $(`#${prefix}-error`);
+  if (msg) { el.textContent = '⚠️ ' + msg; el.classList.add('active'); }
+  else { el.classList.remove('active'); }
+}
+
+function parseIntList(str) {
+  if (!str || !str.trim()) return null;
+  return str.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+}
+
+function fmtRate(v, digits = 3) {
+  if (v == null) return '—';
+  return v.toFixed(digits);
+}
+function fmtPct(v) {
+  if (v == null) return '—';
+  return (v * 100).toFixed(1) + '%';
+}
+function fmtInt(v) {
+  if (v == null) return '—';
+  return v.toLocaleString();
+}
+
+// Name resolution cache: mlb_id -> player name
+const nameCache = {};
+const teamCache = {};
+
+async function resolveName(mlbId) {
+  if (!mlbId) return '—';
+  if (nameCache[mlbId]) return nameCache[mlbId];
+  try {
+    const res = await fetch(`${API}/players/${mlbId}`);
+    if (res.ok) {
+      const p = await res.json();
+      nameCache[mlbId] = p.full_name;
+      return p.full_name;
+    }
+  } catch (e) {}
+  return String(mlbId);
+}
+
+async function resolveTeam(mlbId) {
+  if (!mlbId) return '—';
+  if (teamCache[mlbId]) return teamCache[mlbId];
+  try {
+    const res = await fetch(`${API}/teams/${mlbId}`);
+    if (res.ok) {
+      const t = await res.json();
+      teamCache[mlbId] = t.abbreviation || t.name;
+      return teamCache[mlbId];
+    }
+  } catch (e) {}
+  return String(mlbId);
+}
+
+async function resolveGroupLabel(group) {
+  const parts = [];
+  for (const [key, val] of Object.entries(group)) {
+    if (key === 'batter' || key === 'pitcher' || key === 'runner') {
+      parts.push(await resolveName(val));
+    } else if (key === 'batter_team' || key === 'pitcher_team' || key === 'runner_team') {
+      parts.push(await resolveTeam(val));
+    } else if (key === 'home_away') {
+      parts.push(val === 'home' ? '🏠 Home' : '✈️ Away');
+    } else if (key === 'month') {
+      const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      parts.push(months[val] || val);
+    } else {
+      parts.push(String(val));
+    }
+  }
+  return parts.join(' · ');
+}
+
+
+// ── Tab navigation ────────────────────────────────────────────────
+
+$$('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    $$('.tab-content').forEach(tc => tc.classList.remove('active'));
+    $(`#tab-${btn.dataset.tab}`).classList.add('active');
+
+    // Auto-load teams on first visit
+    if (btn.dataset.tab === 'teams' && !teamCache._loaded) {
+      loadTeams();
+      teamCache._loaded = true;
+    }
+  });
+});
+
+
+// ── Player autocomplete (shared) ──────────────────────────────────
+
+function setupAutocomplete(inputId, listId, chipsId, hiddenId) {
+  const input = $(`#${inputId}`);
+  const list = $(`#${listId}`);
+  const chipsContainer = $(`#${chipsId}`);
+  const hidden = $(`#${hiddenId}`);
+  let selectedIds = [];
+  let debounce;
+
+  function updateHidden() {
+    hidden.value = selectedIds.join(',');
+  }
+
+  function addChip(id, name) {
+    if (selectedIds.includes(id)) return;
+    selectedIds.push(id);
+    updateHidden();
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.innerHTML = `${name} <span style="cursor:pointer;margin-left:2px;" data-id="${id}">✕</span>`;
+    chip.querySelector('span').addEventListener('click', () => {
+      selectedIds = selectedIds.filter(x => x !== id);
+      updateHidden();
+      chip.remove();
+    });
+    chipsContainer.appendChild(chip);
+    nameCache[id] = name;
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    const q = input.value.trim();
+    if (q.length < 2) { list.classList.remove('active'); return; }
+    debounce = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/players?search=${encodeURIComponent(q)}&limit=10`);
+        const data = await res.json();
+        list.innerHTML = '';
+        if (data.results && data.results.length) {
+          data.results.forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.innerHTML = `<span>${p.full_name}</span><span class="meta">${p.primary_position || ''} · ${p.bat_side || ''}/${p.pitch_hand || ''}</span>`;
+            item.addEventListener('click', () => {
+              addChip(p.mlb_id, p.full_name);
+              input.value = '';
+              list.classList.remove('active');
+            });
+            list.appendChild(item);
+          });
+          list.classList.add('active');
+        } else {
+          list.classList.remove('active');
+        }
+      } catch (e) { list.classList.remove('active'); }
+    }, 250);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.autocomplete-wrap')) list.classList.remove('active');
+  });
+
+  return () => selectedIds;
+}
+
+const getBatPlayerIds = setupAutocomplete('bat-player-search', 'bat-player-autocomplete', 'bat-player-chips', 'bat-player-ids');
+const getPitPlayerIds = setupAutocomplete('pit-player-search', 'pit-player-autocomplete', 'pit-player-chips', 'pit-player-ids');
+const getStlPlayerIds = setupAutocomplete('stl-player-search', 'stl-player-autocomplete', 'stl-player-chips', 'stl-player-ids');
+
+
+// ═══════════════════════════════════════════════════════════════════
+// BATTING
+// ═══════════════════════════════════════════════════════════════════
+
+const BAT_COLS = [
+  { key: 'group', label: 'Group', align: 'left' },
+  { key: 'pa', label: 'PA', fmt: fmtInt },
+  { key: 'ab', label: 'AB', fmt: fmtInt },
+  { key: 'h', label: 'H', fmt: fmtInt },
+  { key: 'hr', label: 'HR', fmt: fmtInt },
+  { key: 'rbi', label: 'RBI', fmt: fmtInt },
+  { key: 'bb', label: 'BB', fmt: fmtInt },
+  { key: 'so', label: 'SO', fmt: fmtInt },
+  { key: 'avg', label: 'AVG', fmt: fmtRate },
+  { key: 'obp', label: 'OBP', fmt: fmtRate },
+  { key: 'slg', label: 'SLG', fmt: fmtRate },
+  { key: 'ops', label: 'OPS', fmt: fmtRate },
+  { key: 'iso', label: 'ISO', fmt: fmtRate },
+  { key: 'babip', label: 'BABIP', fmt: fmtRate },
+  { key: 'woba', label: 'wOBA', fmt: fmtRate },
+  { key: 'k_pct', label: 'K%', fmt: fmtPct },
+  { key: 'bb_pct', label: 'BB%', fmt: fmtPct },
+  { key: 'avg_exit_velocity', label: 'Avg EV', fmt: v => v != null ? v.toFixed(1) : '—' },
+  { key: 'hard_hit_pct', label: 'Hard Hit%', fmt: fmtPct },
+  { key: 'barrel_pct', label: 'Barrel%', fmt: fmtPct },
+];
+
+$('#bat-search-btn').addEventListener('click', async () => {
+  const prefix = 'bat';
+  setError(prefix, null);
+  hide($('#bat-empty'));
+  hide($('#bat-table-wrap'));
+  hide($('#bat-status'));
+  hide($('#bat-summary'));
+  setLoading(prefix, true);
+
+  const body = { limit: 200 };
+  const ids = getBatPlayerIds();
+  if (ids.length) body.batter_ids = ids;
+  const seasons = parseIntList($('#bat-seasons').value);
+  if (seasons) body.seasons = seasons;
+  if ($('#bat-date-from').value) body.date_from = $('#bat-date-from').value;
+  if ($('#bat-date-to').value) body.date_to = $('#bat-date-to').value;
+  if ($('#bat-bat-side').value) body.bat_side = $('#bat-bat-side').value;
+  if ($('#bat-pitch-hand').value) body.pitch_hand = $('#bat-pitch-hand').value;
+  if ($('#bat-home-away').value) body.home_away = $('#bat-home-away').value;
+  if ($('#bat-runners').value) body.runners_on = $('#bat-runners').value;
+  if ($('#bat-outs').value) body.outs = [parseInt($('#bat-outs').value)];
+  const order = parseIntList($('#bat-order').value);
+  if (order) body.batting_order_positions = order;
+  if ($('#bat-min-pa').value) body.min_pa = parseInt($('#bat-min-pa').value);
+  body.group_by = $('#bat-group-by').value.split(',');
+  body.sort_by = 'ops';
+  body.sort_dir = 'desc';
+
+  try {
+    const res = await fetch(`${API}/stats/batting`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+
+    setLoading(prefix, false);
+
+    if (!data.results || !data.results.length) {
+      $('#bat-empty').querySelector('p').textContent = 'No results found. Try adjusting your filters.';
+      show($('#bat-empty'));
+      $('#bat-empty').classList.add('active');
+      return;
+    }
+
+    // Resolve all group labels in parallel
+    const labels = await Promise.all(data.results.map(r => resolveGroupLabel(r.group)));
+
+    // Build header
+    const thead = $('#bat-thead');
+    thead.innerHTML = BAT_COLS.map(c =>
+      `<th style="text-align:${c.align || 'right'}" data-key="${c.key}">${c.label}</th>`
+    ).join('');
+
+    // Build rows
+    const tbody = $('#bat-tbody');
+    tbody.innerHTML = '';
+    data.results.forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = BAT_COLS.map(c => {
+        if (c.key === 'group') return `<td style="text-align:left">${labels[i]}</td>`;
+        const v = r.stats[c.key];
+        return `<td>${c.fmt ? c.fmt(v) : (v ?? '—')}</td>`;
+      }).join('');
+      tbody.appendChild(tr);
+    });
+
+    // Summary cards (for single-row or aggregated)
+    if (data.results.length <= 3) {
+      const s = data.results[0].stats;
+      $('#bat-summary').innerHTML = [
+        { v: fmtRate(s.avg), l: 'AVG' },
+        { v: fmtRate(s.obp), l: 'OBP' },
+        { v: fmtRate(s.slg), l: 'SLG' },
+        { v: fmtRate(s.ops), l: 'OPS' },
+        { v: fmtRate(s.woba), l: 'wOBA' },
+        { v: fmtInt(s.hr), l: 'HR' },
+        { v: fmtPct(s.k_pct), l: 'K%' },
+        { v: fmtPct(s.bb_pct), l: 'BB%' },
+      ].map(c => `<div class="summary-card"><div class="value">${c.v}</div><div class="label">${c.l}</div></div>`).join('');
+      show($('#bat-summary'));
+    }
+
+    $('#bat-count').textContent = data.total_results;
+    show($('#bat-status'));
+    show($('#bat-table-wrap'));
+
+  } catch (e) {
+    setLoading(prefix, false);
+    setError(prefix, e.message);
+  }
+});
+
+$('#bat-clear-btn').addEventListener('click', () => {
+  ['bat-seasons', 'bat-date-from', 'bat-date-to', 'bat-order', 'bat-min-pa', 'bat-player-search'].forEach(id => $(`#${id}`).value = '');
+  ['bat-bat-side', 'bat-pitch-hand', 'bat-home-away', 'bat-runners', 'bat-outs'].forEach(id => $(`#${id}`).value = '');
+  $('#bat-player-chips').innerHTML = '';
+  $('#bat-player-ids').value = '';
+  hide($('#bat-table-wrap')); hide($('#bat-status')); hide($('#bat-summary'));
+  setError('bat', null);
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+// PITCHING
+// ═══════════════════════════════════════════════════════════════════
+
+const PIT_COLS = [
+  { key: 'group', label: 'Group', align: 'left' },
+  { key: 'ip', label: 'IP', fmt: v => v != null ? v.toFixed(1) : '—' },
+  { key: 'pa', label: 'BF', fmt: fmtInt },
+  { key: 'h', label: 'H', fmt: fmtInt },
+  { key: 'hr', label: 'HR', fmt: fmtInt },
+  { key: 'bb', label: 'BB', fmt: fmtInt },
+  { key: 'so', label: 'SO', fmt: fmtInt },
+  { key: 'whip', label: 'WHIP', fmt: v => fmtRate(v, 2) },
+  { key: 'k_per_9', label: 'K/9', fmt: v => fmtRate(v, 2) },
+  { key: 'bb_per_9', label: 'BB/9', fmt: v => fmtRate(v, 2) },
+  { key: 'hr_per_9', label: 'HR/9', fmt: v => fmtRate(v, 2) },
+  { key: 'fip', label: 'FIP', fmt: v => fmtRate(v, 2) },
+  { key: 'k_pct', label: 'K%', fmt: fmtPct },
+  { key: 'bb_pct', label: 'BB%', fmt: fmtPct },
+  { key: 'avg_against', label: 'AVG', fmt: fmtRate },
+  { key: 'obp_against', label: 'OBP', fmt: fmtRate },
+  { key: 'slg_against', label: 'SLG', fmt: fmtRate },
+  { key: 'babip_against', label: 'BABIP', fmt: fmtRate },
+  { key: 'avg_exit_velocity', label: 'Avg EV', fmt: v => v != null ? v.toFixed(1) : '—' },
+];
+
+$('#pit-search-btn').addEventListener('click', async () => {
+  const prefix = 'pit';
+  setError(prefix, null);
+  hide($('#pit-table-wrap'));
+  hide($('#pit-status'));
+  hide($('#pit-empty'));
+  setLoading(prefix, true);
+
+  const body = { limit: 200 };
+  const ids = getPitPlayerIds();
+  if (ids.length) body.pitcher_ids = ids;
+  const seasons = parseIntList($('#pit-seasons').value);
+  if (seasons) body.seasons = seasons;
+  if ($('#pit-date-from').value) body.date_from = $('#pit-date-from').value;
+  if ($('#pit-date-to').value) body.date_to = $('#pit-date-to').value;
+  if ($('#pit-pitch-hand').value) body.pitch_hand = $('#pit-pitch-hand').value;
+  if ($('#pit-vs-bat-side').value) body.vs_bat_side = $('#pit-vs-bat-side').value;
+  if ($('#pit-home-away').value) body.home_away = $('#pit-home-away').value;
+  if ($('#pit-min-pa').value) body.min_pa = parseInt($('#pit-min-pa').value);
+  body.group_by = $('#pit-group-by').value.split(',');
+  body.sort_by = 'fip';
+  body.sort_dir = 'asc';
+
+  try {
+    const res = await fetch(`${API}/stats/pitching`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    setLoading(prefix, false);
+
+    if (!data.results || !data.results.length) {
+      show($('#pit-empty'));
+      $('#pit-empty').querySelector('p').textContent = 'No results found.';
+      $('#pit-empty').classList.add('active');
+      return;
+    }
+
+    const labels = await Promise.all(data.results.map(r => resolveGroupLabel(r.group)));
+
+    const thead = $('#pit-thead');
+    thead.innerHTML = PIT_COLS.map(c =>
+      `<th style="text-align:${c.align || 'right'}" data-key="${c.key}">${c.label}</th>`
+    ).join('');
+
+    const tbody = $('#pit-tbody');
+    tbody.innerHTML = '';
+    data.results.forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = PIT_COLS.map(c => {
+        if (c.key === 'group') return `<td style="text-align:left">${labels[i]}</td>`;
+        const v = r.stats[c.key];
+        return `<td>${c.fmt ? c.fmt(v) : (v ?? '—')}</td>`;
+      }).join('');
+      tbody.appendChild(tr);
+    });
+
+    $('#pit-count').textContent = data.total_results;
+    show($('#pit-status'));
+    show($('#pit-table-wrap'));
+
+  } catch (e) {
+    setLoading(prefix, false);
+    setError(prefix, e.message);
+  }
+});
+
+$('#pit-clear-btn').addEventListener('click', () => {
+  ['pit-seasons', 'pit-date-from', 'pit-date-to', 'pit-min-pa', 'pit-player-search'].forEach(id => $(`#${id}`).value = '');
+  ['pit-pitch-hand', 'pit-vs-bat-side', 'pit-home-away'].forEach(id => $(`#${id}`).value = '');
+  $('#pit-player-chips').innerHTML = '';
+  $('#pit-player-ids').value = '';
+  hide($('#pit-table-wrap')); hide($('#pit-status'));
+  setError('pit', null);
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+// STEALS
+// ═══════════════════════════════════════════════════════════════════
+
+const STL_COLS = [
+  { key: 'group', label: 'Group', align: 'left' },
+  { key: 'attempts', label: 'Att', fmt: fmtInt },
+  { key: 'stolen_bases', label: 'SB', fmt: fmtInt },
+  { key: 'caught_stealing', label: 'CS', fmt: fmtInt },
+  { key: 'steal_pct', label: 'SB%', fmt: fmtPct },
+];
+
+$('#stl-search-btn').addEventListener('click', async () => {
+  const prefix = 'stl';
+  setError(prefix, null);
+  hide($('#stl-table-wrap'));
+  hide($('#stl-status'));
+  hide($('#stl-empty'));
+  setLoading(prefix, true);
+
+  const body = { limit: 200 };
+  const ids = getStlPlayerIds();
+  if (ids.length) body.runner_ids = ids;
+  const seasons = parseIntList($('#stl-seasons').value);
+  if (seasons) body.seasons = seasons;
+  if ($('#stl-base').value) body.attempted_base = $('#stl-base').value;
+  body.group_by = $('#stl-group-by').value.split(',');
+
+  try {
+    const res = await fetch(`${API}/stats/steals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    setLoading(prefix, false);
+
+    if (!data.results || !data.results.length) {
+      show($('#stl-empty'));
+      $('#stl-empty').querySelector('p').textContent = 'No results found.';
+      $('#stl-empty').classList.add('active');
+      return;
+    }
+
+    const labels = await Promise.all(data.results.map(r => resolveGroupLabel(r.group)));
+
+    const thead = $('#stl-thead');
+    thead.innerHTML = STL_COLS.map(c =>
+      `<th style="text-align:${c.align || 'right'}" data-key="${c.key}">${c.label}</th>`
+    ).join('');
+
+    const tbody = $('#stl-tbody');
+    tbody.innerHTML = '';
+    data.results.forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = STL_COLS.map(c => {
+        if (c.key === 'group') return `<td style="text-align:left">${labels[i]}</td>`;
+        const v = r.stats[c.key];
+        return `<td>${c.fmt ? c.fmt(v) : (v ?? '—')}</td>`;
+      }).join('');
+      tbody.appendChild(tr);
+    });
+
+    $('#stl-count').textContent = data.total_results;
+    show($('#stl-status'));
+    show($('#stl-table-wrap'));
+
+  } catch (e) {
+    setLoading(prefix, false);
+    setError(prefix, e.message);
+  }
+});
+
+$('#stl-clear-btn').addEventListener('click', () => {
+  ['stl-seasons', 'stl-player-search'].forEach(id => $(`#${id}`).value = '');
+  $('#stl-base').value = '';
+  $('#stl-player-chips').innerHTML = '';
+  $('#stl-player-ids').value = '';
+  hide($('#stl-table-wrap')); hide($('#stl-status'));
+  setError('stl', null);
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+// PLAYERS
+// ═══════════════════════════════════════════════════════════════════
+
+$('#pl-search-btn').addEventListener('click', async () => {
+  const prefix = 'pl';
+  setError(prefix, null);
+  hide($('#pl-table-wrap'));
+  hide($('#pl-status'));
+  setLoading(prefix, true);
+
+  const params = new URLSearchParams();
+  if ($('#pl-search').value) params.set('search', $('#pl-search').value);
+  if ($('#pl-position').value) params.set('position', $('#pl-position').value);
+  if ($('#pl-bat-side').value) params.set('bat_side', $('#pl-bat-side').value);
+  if ($('#pl-pitch-hand').value) params.set('pitch_hand', $('#pl-pitch-hand').value);
+  params.set('limit', '200');
+
+  try {
+    const res = await fetch(`${API}/players?${params}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    setLoading(prefix, false);
+
+    const tbody = $('#pl-tbody');
+    tbody.innerHTML = '';
+    data.results.forEach(p => {
+      nameCache[p.mlb_id] = p.full_name;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align:left">${p.full_name}</td>
+        <td>${p.mlb_id}</td>
+        <td>${p.primary_position || '—'}</td>
+        <td>${p.bat_side || '—'}</td>
+        <td>${p.pitch_hand || '—'}</td>
+        <td>${p.mlb_debut_date || '—'}</td>
+        <td>${p.active ? '✅' : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    $('#pl-count').textContent = data.total;
+    show($('#pl-status'));
+    show($('#pl-table-wrap'));
+
+  } catch (e) {
+    setLoading(prefix, false);
+    setError(prefix, e.message);
+  }
+});
+
+// trigger player search on Enter key
+$('#pl-search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('#pl-search-btn').click();
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+// TEAMS
+// ═══════════════════════════════════════════════════════════════════
+
+async function loadTeams() {
+  setError('tm', null);
+  setLoading('tm', true);
+
+  try {
+    const res = await fetch(`${API}/teams?active=true`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    setLoading('tm', false);
+
+    data.results.forEach(t => { teamCache[t.mlb_id] = t.abbreviation || t.name; });
+
+    const tbody = $('#tm-tbody');
+    tbody.innerHTML = '';
+    data.results.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align:left;font-weight:500">${t.name}</td>
+        <td>${t.abbreviation}</td>
+        <td>${t.league_name || '—'}</td>
+        <td>${t.division_name || '—'}</td>
+        <td>${t.mlb_id}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    show($('#tm-table-wrap'));
+
+  } catch (e) {
+    setLoading('tm', false);
+    setError('tm', e.message);
+  }
+}
+
+</script>
+</body>
+</html>
